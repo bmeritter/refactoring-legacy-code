@@ -38,10 +38,11 @@ public class WalletTransaction {
     }
 
     public boolean execute() throws InvalidTransactionException {
-        if (buyerId == null || (sellerId == null || amount < 0.0)) {
-            throw new InvalidTransactionException("This is an invalid transaction");
+        checkInvalidException();
+
+        if (status == STATUS.EXECUTED) {
+            return true;
         }
-        if (status == STATUS.EXECUTED) return true;
         boolean isLocked = false;
         try {
             isLocked = RedisDistributedLock.getSingletonInstance().lock(id);
@@ -50,7 +51,9 @@ public class WalletTransaction {
             if (!isLocked) {
                 return false;
             }
-            if (status == STATUS.EXECUTED) return true; // double check
+            if (status == STATUS.EXECUTED) {
+                return true; // double check
+            }
             long executionInvokedTimestamp = System.currentTimeMillis();
             // 交易超过20天
             if (executionInvokedTimestamp - createdTimestamp > 1728000000) {
@@ -71,6 +74,12 @@ public class WalletTransaction {
             if (isLocked) {
                 RedisDistributedLock.getSingletonInstance().unlock(id);
             }
+        }
+    }
+
+    private void checkInvalidException() throws InvalidTransactionException {
+        if (buyerId == null || (sellerId == null || amount < 0.0)) {
+            throw new InvalidTransactionException("This is an invalid transaction");
         }
     }
 
